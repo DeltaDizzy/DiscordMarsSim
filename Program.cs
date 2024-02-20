@@ -31,10 +31,13 @@ internal class Program
         });
         commands.RegisterCommands<OrbitModule>();
         await discord.ConnectAsync();
-        DiscordChannel marsChannel = await discord.GetChannelAsync(380515333968232456);
+        DiscordChannel marsChannel = await discord.GetChannelAsync(1199121819953799178);
+        DiscordChannel testChannel = await discord.GetChannelAsync(380515333968232456);
         Console.WriteLine(kinematics.GetEntryCount());
         SetupEvents(discord, marsChannel);
+        SetupEvents(discord, testChannel);
         SetupWebhook(discord, marsChannel);
+        SetupWebhook(discord, testChannel);
         await Task.Delay(-1);
     }
 
@@ -48,11 +51,11 @@ internal class Program
         }
     }
 
-    static void SetupEvents(DiscordClient discord, DiscordChannel marsChannel)
+    static void SetupEvents(DiscordClient discord, DiscordChannel channel)
     {
         discord.MessageCreated += async (client, args) =>
         {
-            if (args.Channel == marsChannel)
+            if (args.Channel == channel)
             {
                 if (args.Message.Content.Contains(";msignore") || args.Message.Author.IsBot)
                 {
@@ -62,7 +65,7 @@ internal class Program
                         Task.Delay(kinematics.GetTimeDelay())
                             .ContinueWith(
                                 (task) => {
-                                    SendMessage(marsChannel, messageQueue.Dequeue());
+                                    SendMessage(channel, messageQueue.Dequeue());
                                 }
                 )));
                 await args.Channel.DeleteMessageAsync(args.Message);
