@@ -1,23 +1,38 @@
 ﻿using System.Reflection;
+using DiscordMarsSim;
+using DiscordMarsSim.Commands;
 using DSharpPlus;
+using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
+using Microsoft.Extensions.DependencyInjection;
 
 internal class Program
 {
-    static Queue<MarsMessage> messageQueue = new(); 
+    static Queue<MarsMessage> messageQueue = new();
+    static Kinematics kinematics = new();
+    
     static async Task Main(string[] args)
     {
-        var tokenFile = new DirectoryInfo(Assembly.GetExecutingAssembly().Location).GetFiles().Where(file => file.Name.Contains("token")).First();
-        DiscordClient discord = new DiscordClient(new DiscordConfiguration() {
-            // https://discord.com/api/oauth2/authorize?client_id=388080083807633408&permissions=536947712&scope=bot
-            Token = File.ReadAllText(tokenFile.FullName),
+        FileInfo tokenFile = new($"{Assembly.GetExecutingAssembly().Location.Replace("\\DiscordMarsSim.dll", "")}\\token.txt");
+        DiscordClient discord = new(new DiscordConfiguration() {
+            Token = File.ReadAllLines(tokenFile.FullName)[0],
             TokenType = TokenType.Bot,
             Intents =   DiscordIntents.MessageContents | 
                         DiscordIntents.GuildMessages |
                         DiscordIntents.AllUnprivileged
         });
+        var services = new ServiceCollection()
+            .AddSingleton<Kinematics>()
+            .BuildServiceProvider();
+        var commands = discord.UseCommandsNext(new CommandsNextConfiguration()
+        {
+            StringPrefixes = [";msignore "],
+            Services = services
+        });
+        commands.RegisterCommands<OrbitModule>();
         await discord.ConnectAsync();
         DiscordChannel marsChannel = await discord.GetChannelAsync(380515333968232456);
+        Console.WriteLine(kinematics.GetEntryCount());
         SetupEvents(discord, marsChannel);
         SetupWebhook(discord, marsChannel);
         await Task.Delay(-1);
@@ -44,10 +59,11 @@ internal class Program
                     return;
                 }
                 messageQueue.Enqueue(new MarsMessage(args.Message,
-                        Task.Delay(new TimeSpan(0, 0, 10)).ContinueWith(
-                            (task) => {
-                                SendMessage(marsChannel, messageQueue.Dequeue());
-                            }
+                        Task.Delay(kinematics.GetTimeDelay())
+                            .ContinueWith(
+                                (task) => {
+                                    SendMessage(marsChannel, messageQueue.Dequeue());
+                                }
                 )));
                 await args.Channel.DeleteMessageAsync(args.Message);
             }
