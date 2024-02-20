@@ -11,7 +11,7 @@ using System.Runtime.InteropServices;
 internal class Program
 {
     static readonly Queue<MarsMessage> messageQueue = new();
-    static readonly Kinematics kinematics = new();
+    static readonly Astrodynamics kinematics = new();
 
     static async Task Main()
     {
@@ -34,7 +34,7 @@ internal class Program
             MinimumLogLevel = LogLevel.Debug
         });
         var services = new ServiceCollection()
-            .AddSingleton<Kinematics>()
+            .AddSingleton<Astrodynamics>()
             .BuildServiceProvider();
         var commands = discord.UseCommandsNext(new CommandsNextConfiguration()
         {

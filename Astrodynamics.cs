@@ -5,7 +5,7 @@ using System.Text.RegularExpressions;
 
 namespace DiscordMarsSim;
 
-internal sealed partial class Kinematics
+internal sealed partial class Astrodynamics
 {
     private readonly HttpClient client;
     [GeneratedRegex("(?<=LT=)(.*)(?=RG)")]
@@ -16,7 +16,7 @@ internal sealed partial class Kinematics
     private readonly Regex delayExtractor = DelayRegex();
 
     Dictionary<DateTime, TimeSpan> delayTable = [];
-    public Kinematics()
+    public Astrodynamics()
     {
         client = new HttpClient()
         {
