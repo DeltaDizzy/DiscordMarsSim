@@ -31,7 +31,7 @@ internal class Program
             Intents = DiscordIntents.MessageContents |
                         DiscordIntents.GuildMessages |
                         DiscordIntents.AllUnprivileged,
-            MinimumLogLevel = LogLevel.Debug
+            MinimumLogLevel = LogLevel.Information
         });
         var services = new ServiceCollection()
             .AddSingleton<Astrodynamics>()
