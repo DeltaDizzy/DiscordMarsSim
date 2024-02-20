@@ -1,25 +1,37 @@
-﻿using System.Reflection;
-using DiscordMarsSim;
+﻿using DiscordMarsSim;
 using DiscordMarsSim.Commands;
 using DSharpPlus;
 using DSharpPlus.CommandsNext;
 using DSharpPlus.Entities;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
+using System.Reflection;
+using System.Runtime.InteropServices;
 
 internal class Program
 {
-    static Queue<MarsMessage> messageQueue = new();
-    static Kinematics kinematics = new();
-    
-    static async Task Main(string[] args)
+    static readonly Queue<MarsMessage> messageQueue = new();
+    static readonly Kinematics kinematics = new();
+
+    static async Task Main()
     {
-        FileInfo tokenFile = new($"{Assembly.GetExecutingAssembly().Location.Replace("\\DiscordMarsSim.dll", "")}\\token.txt");
-        DiscordClient discord = new(new DiscordConfiguration() {
+        FileInfo tokenFile;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+             tokenFile = new($"{Assembly.GetExecutingAssembly().Location.Replace("/DiscordMarsSim.dll", "")}/token.txt");
+        } 
+        else
+        {
+            tokenFile = new($"{Assembly.GetExecutingAssembly().Location.Replace("\\DiscordMarsSim.dll", "")}\\token.txt");
+        }
+        DiscordClient discord = new(new DiscordConfiguration()
+        {
             Token = File.ReadAllLines(tokenFile.FullName)[0],
             TokenType = TokenType.Bot,
-            Intents =   DiscordIntents.MessageContents | 
+            Intents = DiscordIntents.MessageContents |
                         DiscordIntents.GuildMessages |
-                        DiscordIntents.AllUnprivileged
+                        DiscordIntents.AllUnprivileged,
+            MinimumLogLevel = LogLevel.Debug
         });
         var services = new ServiceCollection()
             .AddSingleton<Kinematics>()
@@ -36,16 +48,16 @@ internal class Program
         Console.WriteLine(kinematics.GetEntryCount());
         SetupEvents(discord, marsChannel);
         SetupEvents(discord, testChannel);
-        SetupWebhook(discord, marsChannel);
-        SetupWebhook(discord, testChannel);
+        SetupWebhook(marsChannel);
+        SetupWebhook(testChannel);
         await Task.Delay(-1);
     }
 
-    private static async void SetupWebhook(DiscordClient discord, DiscordChannel channel)
+    private static async void SetupWebhook(DiscordChannel channel)
     {
         var webhooks = await channel.GetWebhooksAsync();
         var validHooks = webhooks.Where(hook => hook.Name.Contains("Mars Sim"));
-        if (validHooks.Count() == 0)
+        if (!validHooks.Any())
         {
             await channel.CreateWebhookAsync("Mars Sim");
         }
@@ -64,36 +76,41 @@ internal class Program
                 messageQueue.Enqueue(new MarsMessage(args.Message,
                         Task.Delay(kinematics.GetTimeDelay())
                             .ContinueWith(
-                                (task) => {
+                                (task) =>
+                                {
                                     SendMessage(channel, messageQueue.Dequeue());
                                 }
                 )));
                 await args.Channel.DeleteMessageAsync(args.Message);
+                discord.Logger.LogInformation($"Message queued from {args.Message.Author.Username}:\n    \"{args.Message.Content}\"");
+                
             }
         };
+
     }
 
-    async static void SendMessage(DiscordChannel channel, MarsMessage message) {
+    async static void SendMessage(DiscordChannel channel, MarsMessage message)
+    {
         // get webhook 
         var hooks = await channel.GetWebhooksAsync();
         var hook = hooks.Where(hook => hook.Name.Contains("Mars Sim")).FirstOrDefault();
         // get message
-        var messageBuilder = new DiscordMessageBuilder(message.message);
+        var messageBuilder = new DiscordMessageBuilder(message.Message);
         if (hook is default(DiscordWebhook))
         {
             return;
         }
-        var messageAuthor = (DiscordMember)message.message.Author;
+        var messageAuthor = (DiscordMember)message.Message.Author;
         // create message to send
-        DiscordWebhookBuilder hookBuilder = new DiscordWebhookBuilder(messageBuilder)
+        DiscordWebhookBuilder hookBuilder = new(messageBuilder)
         {
             AvatarUrl = messageAuthor.GetGuildAvatarUrl(ImageFormat.Auto),
-            Username = messageAuthor.DisplayName 
+            Username = messageAuthor.DisplayName
         };
-        
+
         //await builder.SendAsync(channel);
         await hook.ExecuteAsync(hookBuilder);
     }
 
-    record MarsMessage(DiscordMessage message, Task dequeueCallback);
+    record MarsMessage(DiscordMessage Message, Task DequeueCallback);
 }

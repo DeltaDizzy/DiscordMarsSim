@@ -5,15 +5,21 @@ using System.Text.RegularExpressions;
 
 namespace DiscordMarsSim;
 
-internal sealed class Kinematics
+internal sealed partial class Kinematics
 {
-    private HttpClient client;
-    private Regex timeExtractor = new("(?<=A.D.)(.*)(?=TDB)");
-    private Regex delayExtractor = new("(?<=LT=)(.*)(?=RG)");
+    private readonly HttpClient client;
+    [GeneratedRegex("(?<=LT=)(.*)(?=RG)")]
+    private static partial Regex DelayRegex();
+    [GeneratedRegex("(?<=A.D.)(.*)(?=TDB)")]
+    private static partial Regex TimeRegex();
+    private readonly Regex timeExtractor = TimeRegex();
+    private readonly Regex delayExtractor = DelayRegex();
 
     Dictionary<DateTime, TimeSpan> delayTable = [];
-    public Kinematics() {
-        client = new HttpClient() {
+    public Kinematics()
+    {
+        client = new HttpClient()
+        {
             BaseAddress = new Uri("https://ssd.jpl.nasa.gov/api/horizons.api")
         };
         client.DefaultRequestHeaders.Accept.Clear();
@@ -27,12 +33,11 @@ internal sealed class Kinematics
         return await client.GetStringAsync(request);
     }
 
-    public Dictionary<DateTime, TimeSpan> ReadEphemeris() {
-        Stopwatch sw = Stopwatch.StartNew();
+    public Dictionary<DateTime, TimeSpan> ReadEphemeris()
+    {
         Dictionary<DateTime, TimeSpan> table = [];
         string result = Request().Result;
-        Log($"Request recieved in {sw.ElapsedMilliseconds}ms!");
-        File.WriteAllText($"{Assembly.GetExecutingAssembly().Location.Replace("\\DiscordMarsSim.dll", "")}\\result.txt", result);
+        //File.WriteAllText($"{Assembly.GetExecutingAssembly().Location.Replace("\\DiscordMarsSim.dll", "")}\\result.txt", result);
         var lines = result.Split('\n').ToList();
         DateTime? timeToAdd = null;
         TimeSpan? delayToAdd = null;
@@ -43,15 +48,15 @@ internal sealed class Kinematics
         var timeLines = dataLines.Where(line => line.Contains("TDB"));
         var delayLines = dataLines.Where(line => line.Contains("LT"));
         var tuples = timeLines.Zip(delayLines);
-        Log($"Tuples created in {sw.ElapsedMilliseconds}ms!");
-        foreach (var entry in tuples)
+        foreach (var (First, Second) in tuples)
         {
             //Console.WriteLine(entry);
-            if(DateTime.TryParse(timeExtractor.Match(entry.First).Value.Trim(), out DateTime time)) {
+            if (DateTime.TryParse(timeExtractor.Match(First).Value.Trim(), out DateTime time))
+            {
                 // have a time!
                 timeToAdd = time;
             }
-            if (double.TryParse(delayExtractor.Match(entry.Second).Value.Trim(), out double delay))
+            if (double.TryParse(delayExtractor.Match(Second).Value.Trim(), out double delay))
             {
                 delayToAdd = new TimeSpan(0, 0, (int)Math.Round(delay));
             }
@@ -62,8 +67,6 @@ internal sealed class Kinematics
                 delayToAdd = null;
             }
         }
-        Log($"Parsing done in {sw.ElapsedMilliseconds}ms!");
-        sw.Stop();
         return table;
     }
 
@@ -79,5 +82,5 @@ internal sealed class Kinematics
         return delayTable.OrderBy(pair => Math.Abs(pair.Key.Subtract(DateTime.Now).Seconds)).First().Value;
     }
 
-    public void Log(string msg) => Console.WriteLine(msg); 
+    public static void Log(string msg) => Console.WriteLine(msg);
 }
