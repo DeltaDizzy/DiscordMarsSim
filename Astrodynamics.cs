@@ -1,6 +1,4 @@
-﻿using System.Diagnostics;
-using System.Net.Http.Headers;
-using System.Reflection;
+﻿using System.Net.Http.Headers;
 using System.Text.RegularExpressions;
 
 namespace DiscordMarsSim;
@@ -38,13 +36,14 @@ internal sealed partial class Astrodynamics
         Dictionary<DateTime, TimeSpan> table = [];
         string result = Request().Result;
         //File.WriteAllText($"{Assembly.GetExecutingAssembly().Location.Replace("\\DiscordMarsSim.dll", "")}\\result.txt", result);
-        var lines = result.Split('\n').ToList();
         DateTime? timeToAdd = null;
         TimeSpan? delayToAdd = null;
 
+        var lines = result.Split('\n').ToList();
+
         // merge lines
         var dataLines = lines.SkipWhile(item => !item.Contains("$$SOE"));
-        Console.WriteLine(dataLines.First());
+        //Console.WriteLine(dataLines.First());
         var timeLines = dataLines.Where(line => line.Contains("TDB"));
         var delayLines = dataLines.Where(line => line.Contains("LT"));
         var tuples = timeLines.Zip(delayLines);
